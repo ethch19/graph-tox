@@ -1,0 +1,7 @@
+[project]
+name = "tox-fm"
+version = "0.1.0"
+description = "foundation model for toxicity prediction"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
