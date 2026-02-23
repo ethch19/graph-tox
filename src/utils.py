@@ -9,7 +9,7 @@ CHIRALITY_LIST = [
     Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
     Chem.rdchem.ChiralType.CHI_OTHER,
 ]
-BOND_LIST = [BT.SINGLE, BT.DOUBLE, BT.TRIPLE, BT.AROMATIC, BT.DATIVE]
+BOND_LIST = [BT.SINGLE, BT.DOUBLE, BT.TRIPLE, BT.AROMATIC]
 BONDDIR_LIST = [
     Chem.rdchem.BondDir.NONE,
     Chem.rdchem.BondDir.ENDUPRIGHT,
