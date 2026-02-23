@@ -179,6 +179,9 @@ class FusionModel(nn.Module):
     def forward(
         self, graph_data: Any, lincs_vector: torch.Tensor, chembl_vector: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, nn.Parameter]:
+        lincs_vector = lincs_vector.view(-1, self.lincs_mlp[0].in_features)
+        chembl_vector = chembl_vector.view(-1, self.chembl_mlp[0].in_features)
+
         gnn_features, _ = self.gnn(graph_data)
         graph_embeddings = self.gnn_projection(gnn_features)
 

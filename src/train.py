@@ -107,12 +107,12 @@ def main():
     device = torch.device("cuda")
     print(f"Training on device: {device}")
 
-    raw_gin = GINet(num_layer=5, emb_dim=300, feat_dim=256, drop_ratio=0.0)
+    raw_gin = GINet(num_layer=5, emb_dim=300, feat_dim=512, drop_ratio=0.0)
     model = FusionModel(
         gnn_model=raw_gin,
         lincs_input_dim=978,
         chembl_input_dim=1283,
-        gnn_feat_dim=256,
+        gnn_feat_dim=512,
         embed_dim=256,
     ).to(device)
     optimiser = optim.Adam(model.parameters(), lr=1e-4)
