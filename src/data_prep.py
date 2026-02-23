@@ -59,12 +59,17 @@ class DrugDB(Dataset):
         cursor = conn.cursor()
 
         while True:
-            inchi_key = self.keys[idx]
-            cursor.execute("SELECT smiles FROM drugs WHERE inchi_key = ?", (inchi_key,))
-            row = cursor.fetchone()
-            smiles = row[0] if row else None
+            try:
+                inchi_key = self.keys[idx]
+                cursor.execute(
+                    "SELECT smiles FROM drugs WHERE inchi_key = ?", (inchi_key,)
+                )
+                row = cursor.fetchone()
+                smiles = row[0] if row else None
 
-            if smiles:
+                if not smiles:
+                    raise ValueError("Missing SMILES")
+
                 cursor.execute(
                     """
                     SELECT sr.data_json 
@@ -88,24 +93,26 @@ class DrugDB(Dataset):
                 lincs_row = cursor.fetchone()
 
                 x, edge_index, edge_attr = smiles_to_graph(smiles)
-                if x is not None:
-                    break
+                if x is None:
+                    raise ValueError("Graph conversion failed")
 
-            idx = random.randint(0, len(self.keys) - 1)
+                l_json = json.loads(lincs_row[0]) if lincs_row else {}
+                c_json = json.loads(chembl_row[0]) if chembl_row else {}
 
-            l_json = json.loads(lincs_row[0]) if lincs_row else {}
-            c_json = json.loads(chembl_row[0]) if chembl_row else {}
+                return Data(
+                    x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_attr,
+                    lincs=torch.tensor(
+                        l_json.get("lincs_zscores_array", [0.0] * self.lincs_dim),
+                        dtype=torch.float,
+                    ),
+                    chembl=torch.tensor(
+                        c_json.get("chembl_pchembl_array", [0.0] * self.chembl_dim),
+                        dtype=torch.float,
+                    ),
+                )
 
-            return Data(
-                x=x,
-                edge_index=edge_index,
-                edge_attr=edge_attr,
-                lincs=torch.tensor(
-                    l_json.get("lincs_zscores_array", [0.0] * self.lincs_dim),
-                    dtype=torch.float,
-                ),
-                chembl=torch.tensor(
-                    c_json.get("chembl_pchembl_array", [0.0] * self.chembl_dim),
-                    dtype=torch.float,
-                ),
-            )
+            except Exception:
+                idx = random.randint(0, len(self.keys) - 1)
+                continue

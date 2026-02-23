@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N fusion_train
-#PBS -l select=1:ncpus=4:mem=96gb:ngpus=1
+#PBS -l select=1:ncpus=4:mem=256gb:ngpus=1
 #PBS -l walltime=12:00:00
 #PBS -o training_output.log
 #PBS -e training_error.log
