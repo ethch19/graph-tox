@@ -198,16 +198,24 @@ def main():
     latest_model_path = max(model_files, key=lambda f: f.stat().st_mtime)
     print(f"Loading latest model weights from: {latest_model_path.name}")
 
-    raw_gin = GINet(num_layer=5, emb_dim=300, feat_dim=256, drop_ratio=0.0)
+    raw_gin = GINet(num_layer=5, emb_dim=300, feat_dim=512, drop_ratio=0.0)
     model = FusionModel(
         gnn_model=raw_gin,
         lincs_input_dim=978,
         chembl_input_dim=1283,
-        gnn_feat_dim=256,
+        gnn_feat_dim=512,
         embed_dim=256,
     )
 
-    model.load_state_dict(torch.load(latest_model_path, map_location=device))
+    state_dict = torch.load(latest_model_path, map_location=device)
+
+    unwrapped_state_dict = {}
+    for key, value in state_dict.items():
+        if key.startswith("module."):
+            unwrapped_state_dict[key[7:]] = value
+        else:
+            unwrapped_state_dict[key] = value
+    model.load_state_dict(unwrapped_state_dict)
     model.to(device)
     print("Model weights loaded successfully.")
 
