@@ -24,38 +24,53 @@ class DrugDB(Dataset):
         print(f"Lazy-loaded {len(self.keys_df)} compound keys")
 
     def __len__(self):
-        return len(self.data_df)
+        return len(self.keys_df)
 
     def __getitem__(self, idx):
         inchi_key = self.keys_df.iloc[idx]["inchi_key"]
 
-        query = f"""
-            SELECT 
-                d.smiles,
-                sr_chembl.data_json as chembl_json,
-                sr_lincs.data_json as lincs_json
-            FROM drugs d
-            LEFT JOIN source_records sr_chembl ON d.inchi_key = sr_chembl.drug_inchi_key
-            LEFT JOIN sources s_chembl ON sr_chembl.source_id = s_chembl.id AND s_chembl.name = 'ChEMBL'
-            LEFT JOIN source_records sr_lincs ON d.inchi_key = sr_lincs.drug_inchi_key
-            LEFT JOIN sources s_lincs ON sr_lincs.source_id = s_lincs.id AND s_lincs.name = 'LINCS_L1000_PhaseII'
-            WHERE d.inchi_key = '{inchi_key}'
-        """
-
         conn = sqlite3.connect(self.db_path)
-        row = pd.read_sql_query(query, conn).iloc[0]
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT smiles FROM drugs WHERE inchi_key = ?", (inchi_key,))
+        smiles_row = cursor.fetchone()
+        smiles = smiles_row[0] if smiles_row else None
+
+        cursor.execute(
+            """
+            SELECT sr.data_json 
+            FROM source_records sr 
+            JOIN sources s ON sr.source_id = s.id 
+            WHERE sr.drug_inchi_key = ? AND s.name = 'ChEMBL'
+        """,
+            (inchi_key,),
+        )
+        chembl_row = cursor.fetchone()
+        chembl_json_str = chembl_row[0] if chembl_row else "{}"
+
+        cursor.execute(
+            """
+            SELECT sr.data_json 
+            FROM source_records sr 
+            JOIN sources s ON sr.source_id = s.id 
+            WHERE sr.drug_inchi_key = ? AND s.name = 'LINCS_L1000_PhaseII'
+        """,
+            (inchi_key,),
+        )
+        lincs_row = cursor.fetchone()
+        lincs_json_str = lincs_row[0] if lincs_row else "{}"
+
         conn.close()
 
-        x, edge_index, edge_attr = smiles_to_graph(row["smiles"])
+        if smiles is None:
+            return None
+
+        x, edge_index, edge_attr = smiles_to_graph(smiles)
         if x is None:
             return None
 
-        lincs_data = (
-            json.loads(row["lincs_json"]) if pd.notnull(row["lincs_json"]) else {}
-        )
-        chembl_data = (
-            json.loads(row["chembl_json"]) if pd.notnull(row["chembl_json"]) else {}
-        )
+        lincs_data = json.loads(lincs_json_str)
+        chembl_data = json.loads(chembl_json_str)
 
         lincs_array = lincs_data.get("lincs_zscores_array", [])
         chembl_array = chembl_data.get("chembl_pchembl_array", [])

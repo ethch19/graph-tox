@@ -35,9 +35,14 @@ def save_checkpoint(
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
     ckpt_path = SAVE_DIR / f"ckpt_{timestamp}_epoch{epoch + 1}.pth"
 
+    model_state = (
+        model.module.state_dict()
+        if isinstance(model, nn.DataParallel)
+        else model.state_dict()
+    )
     checkpoint = {
         "epoch": epoch,
-        "model_state_dict": model.state_dict(),
+        "model_state_dict": model_state,
         "optimizer_state_dict": optimizer.state_dict(),
         "train_losses": train_losses,
         "val_losses": val_losses,
@@ -114,7 +119,7 @@ def main():
         chembl_input_dim=1283,
         gnn_feat_dim=512,
         embed_dim=256,
-    ).to(device)
+    )
     optimiser = optim.Adam(model.parameters(), lr=1e-4)
 
     start_epoch, train_losses, val_losses, run_timestamp = load_checkpoint(
@@ -128,6 +133,12 @@ def main():
             )
             sys.exit(1)
         load_pretrained_gnn(PRETRAINED_GIN_PATH, model.gnn)
+
+    if torch.cuda.device_count() > 1:
+        print(f"Total {torch.cuda.device_count()} GPUs")
+        model = nn.DataParallel(model)
+
+    model = model.to(device)
 
     dataset = DrugDB(db_path=str(DATA_DIR / "drugs.db"))
     train_size = int(0.9 * len(dataset))
