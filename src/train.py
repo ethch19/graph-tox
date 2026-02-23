@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
-from torch.profiler import ProfilerActivity, profile, record_function
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
@@ -167,7 +166,6 @@ def main():
     print(f"Train size: {len(train_dataset)} | Val size: {len(val_dataset)}")
 
     total_epochs = 20
-    activities = [ProfilerActivity.CPU, ProfilerActivity.CUDA]
 
     for epoch in range(start_epoch, total_epochs):
         start_time = time.time()
@@ -177,51 +175,20 @@ def main():
             train_loader, desc=f"Epoch {epoch + 1}/{total_epochs}", unit="batch"
         )
 
-        if epoch == start_epoch:
-            print(f"Profiling Epoch {epoch + 1}...")
-            with profile(
-                activities=activities,
-                record_shapes=True,
-                profile_memory=True,
-                with_stack=True,
-            ) as prof:
-                for batch in train_loader:
-                    if batch is None:
-                        continue
-                    batch = batch.to(device)
-                    optimiser.zero_grad()
+        for batch in pbar:
+            if batch is None:
+                continue
+            batch = batch.to(device)
+            optimiser.zero_grad()
 
-                    with record_function("model_forward"):
-                        graph_emb, assay_emb, logit_scale = model(
-                            batch, batch.lincs, batch.chembl
-                        )
+            graph_emb, assay_emb, logit_scale = model(batch, batch.lincs, batch.chembl)
 
-                    with record_function("model_backward"):
-                        loss = clip_loss(graph_emb, assay_emb, logit_scale)
-                        loss.backward()
+            loss = clip_loss(graph_emb, assay_emb, logit_scale)
+            loss.backward()
+            optimiser.step()
 
-                    optimiser.step()
-                    epoch_train_loss += loss.item()
-                    pbar.set_postfix(loss=f"{loss.item():.4f}")
-
-            print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=15))
-        else:
-            for batch in pbar:
-                if batch is None:
-                    continue
-                batch = batch.to(device)
-                optimiser.zero_grad()
-
-                graph_emb, assay_emb, logit_scale = model(
-                    batch, batch.lincs, batch.chembl
-                )
-
-                loss = clip_loss(graph_emb, assay_emb, logit_scale)
-                loss.backward()
-                optimiser.step()
-
-                epoch_train_loss += loss.item()
-                pbar.set_postfix(loss=f"{loss.item():.4f}")
+            epoch_train_loss += loss.item()
+            pbar.set_postfix(loss=f"{loss.item():.4f}")
 
         avg_train_loss = epoch_train_loss / len(train_loader)
         train_losses.append(avg_train_loss)
