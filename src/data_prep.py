@@ -11,10 +11,25 @@ from src.utils import smiles_to_graph
 class DrugDB(Dataset):
     def __init__(self, db_path="../data/drugs.db"):
         super().__init__()
+        self.db_path = db_path
+        self.lincs_dim = 978
+        self.chembl_dim = 1283
 
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(self.db_path)
 
-        query = """
+        query = "SELECT inchi_key FROM drugs WHERE smiles IS NOT NULL"
+        self.keys_df = pd.read_sql_query(query, conn)
+        conn.close()
+
+        print(f"Lazy-loaded {len(self.keys_df)} compound keys")
+
+    def __len__(self):
+        return len(self.data_df)
+
+    def __getitem__(self, idx):
+        inchi_key = self.keys_df.iloc[idx]["inchi_key"]
+
+        query = f"""
             SELECT 
                 d.smiles,
                 sr_chembl.data_json as chembl_json,
@@ -24,30 +39,23 @@ class DrugDB(Dataset):
             LEFT JOIN sources s_chembl ON sr_chembl.source_id = s_chembl.id AND s_chembl.name = 'ChEMBL'
             LEFT JOIN source_records sr_lincs ON d.inchi_key = sr_lincs.drug_inchi_key
             LEFT JOIN sources s_lincs ON sr_lincs.source_id = s_lincs.id AND s_lincs.name = 'LINCS_L1000_PhaseII'
-            WHERE d.smiles IS NOT NULL
+            WHERE d.inchi_key = '{inchi_key}'
         """
-        self.data_df = pd.read_sql_query(query, conn)
+
+        conn = sqlite3.connect(self.db_path)
+        row = pd.read_sql_query(query, conn).iloc[0]
         conn.close()
-
-        self.lincs_dim = 978
-        self.chembl_dim = 1283
-
-        print(f"Loaded {len(self.data_df)} overlapping compounds.")
-        print(f"LINCS Genes: {self.lincs_dim} (Landmarks Only)")
-        print(f"ChEMBL Assays: {self.chembl_dim} (Pre-Mapped Array)")
-
-    def __len__(self):
-        return len(self.data_df)
-
-    def __getitem__(self, idx):
-        row = self.data_df.iloc[idx]
 
         x, edge_index, edge_attr = smiles_to_graph(row["smiles"])
         if x is None:
             return None
 
-        lincs_data = json.loads(row["lincs_json"])
-        chembl_data = json.loads(row["chembl_json"])
+        lincs_data = (
+            json.loads(row["lincs_json"]) if pd.notnull(row["lincs_json"]) else {}
+        )
+        chembl_data = (
+            json.loads(row["chembl_json"]) if pd.notnull(row["chembl_json"]) else {}
+        )
 
         lincs_array = lincs_data.get("lincs_zscores_array", [])
         chembl_array = chembl_data.get("chembl_pchembl_array", [])
