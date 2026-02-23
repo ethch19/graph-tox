@@ -1,4 +1,5 @@
 import json
+import random
 import sqlite3
 
 import pandas as pd
@@ -67,7 +68,8 @@ class DrugDB(Dataset):
 
         x, edge_index, edge_attr = smiles_to_graph(smiles)
         if x is None:
-            return None
+            new_idx = random.randint(0, len(self.keys_df) - 1)
+            return self.__getitem__(new_idx)
 
         lincs_data = json.loads(lincs_json_str)
         chembl_data = json.loads(chembl_json_str)

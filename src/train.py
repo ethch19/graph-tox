@@ -146,9 +146,11 @@ def main():
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
     train_loader = DataLoader(
-        train_dataset, batch_size=128, shuffle=True, drop_last=True
+        train_dataset, batch_size=128, shuffle=True, drop_last=True, num_workers=4
     )
-    val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, drop_last=True)
+    val_loader = DataLoader(
+        val_dataset, batch_size=128, shuffle=False, drop_last=False, num_workers=4
+    )
 
     print(f"Train size: {len(train_dataset)} | Val size: {len(val_dataset)}")
 
