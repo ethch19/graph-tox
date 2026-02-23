@@ -20,10 +20,10 @@ class DrugDB(Dataset):
                 sr_chembl.data_json as chembl_json,
                 sr_lincs.data_json as lincs_json
             FROM drugs d
-            JOIN source_records sr_chembl ON d.inchi_key = sr_chembl.drug_inchi_key
-            JOIN sources s_chembl ON sr_chembl.source_id = s_chembl.id AND s_chembl.name = 'ChEMBL'
-            JOIN source_records sr_lincs ON d.inchi_key = sr_lincs.drug_inchi_key
-            JOIN sources s_lincs ON sr_lincs.source_id = s_lincs.id AND s_lincs.name = 'LINCS_L1000_PhaseII'
+            LEFT JOIN source_records sr_chembl ON d.inchi_key = sr_chembl.drug_inchi_key
+            LEFT JOIN sources s_chembl ON sr_chembl.source_id = s_chembl.id AND s_chembl.name = 'ChEMBL'
+            LEFT JOIN source_records sr_lincs ON d.inchi_key = sr_lincs.drug_inchi_key
+            LEFT JOIN sources s_lincs ON sr_lincs.source_id = s_lincs.id AND s_lincs.name = 'LINCS_L1000_PhaseII'
             WHERE d.smiles IS NOT NULL
         """
         self.data_df = pd.read_sql_query(query, conn)
