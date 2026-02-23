@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N fusion_train
-#PBS -l select=1:ncpus=4:mem=64gb:ngpus=1
+#PBS -l select=1:ncpus=8:mem=128gb:ngpus=1
 #PBS -l walltime=12:00:00
 #PBS -o training_output.log
 #PBS -e training_error.log
@@ -12,9 +12,10 @@ eval "$(mamba shell hook --shell bash)"
 mamba activate graph-tox
 
 echo "Allocated GPUs: $CUDA_VISIBLE_DEVICES"
+echo "--- Started at: $(date '+%Y-%m-%d %H:%M:%S') ---"
 
 echo "===Training Fusion Model==="
-python -m src.train
+python -u -m src.train
 if [ $? -ne 0 ]; then
     echo "Training failed. Aborting evaluation."
     exit 1
@@ -23,4 +24,4 @@ fi
 echo "===Starting Evaluation==="
 python -m src.evaluation
 
-echo "Job finished at $(date)"
+echo "--- Script finished at: $(date '+%Y-%m-%d %H:%M:%S') ---"
