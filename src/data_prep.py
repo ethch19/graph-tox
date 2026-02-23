@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import random
@@ -37,26 +38,29 @@ class DrugDB(Dataset):
 
         self.conn = None
         self.counter = 0
+        self.cursor = None
         print(f"Lazy-loaded {len(self.keys)} compound keys")
 
     def __len__(self):
         return len(self.keys)
 
-    def _get_conn(self):
+    def _get_cursor(self):
         if self.conn is None:
             self.conn = sqlite3.connect(self.db_path)
-        return self.conn
+            self.cursor = self.conn.cursor()
+        return self.cursor
 
     def __getitem__(self, idx):
         self.counter += 1
+
         if self.counter % 500 == 0:
+            gc.collect()
             pid = os.getpid()
             print(
                 f"[DEBUG] PID {pid} | Processed {self.counter} | RAM: {get_worker_mem():.2f} MB"
             )
 
-        conn = self._get_conn()
-        cursor = conn.cursor()
+        cursor = self._get_cursor()
 
         while True:
             try:
@@ -99,7 +103,7 @@ class DrugDB(Dataset):
                 l_json = json.loads(lincs_row[0]) if lincs_row else {}
                 c_json = json.loads(chembl_row[0]) if chembl_row else {}
 
-                return Data(
+                data = Data(
                     x=x,
                     edge_index=edge_index,
                     edge_attr=edge_attr,
@@ -112,6 +116,10 @@ class DrugDB(Dataset):
                         dtype=torch.float,
                     ),
                 )
+
+                del lincs_row, chembl_row, l_json, c_json, smiles
+
+                return data
 
             except Exception:
                 idx = random.randint(0, len(self.keys) - 1)
