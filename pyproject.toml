@@ -1,7 +1,0 @@
-[project]
-name = "graph-tox"
-version = "0.1.0"
-description = "graph-based model for drug toxicity prediction"
-readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
