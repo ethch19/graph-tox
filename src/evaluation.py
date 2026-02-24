@@ -96,10 +96,11 @@ def get_predictions(
     return np.vstack(all_preds), np.vstack(all_targets)
 
 
+# classification
 def eval_downstream(
     gnn_encoder: nn.Module,
     device: torch.device,
-    dataset_name: str,  # ("ESOL", "FreeSolv", "Lipo", "PCBA", "MUV", "HIV", "BACE", "BBBP", "Tox21", "ToxCast", "SIDER", "ClinTox")
+    dataset_name: str,  # "BBBP", "Tox21", "ClinTox", "HIV", "BACE", "SIDER", "MUV"
     target_path: Path,
     batch_size: int = 128,
     epochs: int = 100,
@@ -160,8 +161,9 @@ def eval_downstream(
     criterion = nn.BCEWithLogitsLoss()
 
     best_val_auc = 0.0
-    best_weights = None
+    best_weights = copy.deepcopy(linear_head.state_dict())
     history = []
+    val_history = []
 
     for epoch in range(epochs):
         linear_head.train()
@@ -186,9 +188,29 @@ def eval_downstream(
         avg_loss = total_loss / len(train_loader)
         history.append(avg_loss)
 
-        val_preds, val_targets = get_predictions(
-            gnn_encoder, linear_head, val_loader, device
-        )
+        linear_head.eval()
+        val_loss_total = 0
+        all_val_preds, all_val_targets = [], []
+
+        with torch.no_grad():
+            for batch in val_loader:
+                batch = batch.to(device)
+                features, _ = gnn_encoder(batch)
+                logits = linear_head(features)
+
+                is_labeled = ~torch.isnan(batch.y)
+                val_loss = criterion(logits[is_labeled], batch.y[is_labeled])
+                val_loss_total += val_loss.item()
+
+                probs = torch.sigmoid(logits)
+                all_val_preds.append(probs.cpu().numpy())
+                all_val_targets.append(batch.y.cpu().numpy())
+
+        avg_val_loss = val_loss_total / len(val_loader)
+        val_history.append(avg_val_loss)
+
+        val_preds = np.vstack(all_val_preds)
+        val_targets = np.vstack(all_val_targets)
         val_auc = cal_roc_auc(val_preds, val_targets, num_tasks)
 
         if val_auc > best_val_auc:
@@ -197,7 +219,7 @@ def eval_downstream(
 
         if (epoch + 1) % 10 == 0:
             print(
-                f"   Epoch {epoch + 1}/{epochs} | Train BCE Loss: {avg_loss:.4f} | Val ROC-AUC: {val_auc * 100:.2f}%"
+                f"   Epoch {epoch + 1}/{epochs} | Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f} | Val ROC-AUC: {val_auc * 100:.2f}%"
             )
 
     linear_head.load_state_dict(best_weights)
@@ -211,7 +233,8 @@ def eval_downstream(
 
     plt.figure(figsize=(8, 6))
     plt.plot(history, label="Training Loss", color="blue")
-    plt.title(f"{dataset_name} MLP Training Loss")
+    plt.plot(val_history, label="Validation Loss", color="orange")
+    plt.title(f"{dataset_name} MLP Training & Validation Loss")
     plt.xlabel("Epoch")
     plt.ylabel("BCE Loss")
     plt.grid(True)
@@ -300,7 +323,7 @@ def main():
 
     eval_zero_shot_retrieval(model, device, target_path)
 
-    downstream_datasets = ["Tox21"]
+    downstream_datasets = ["BBBP", "Tox21", "ClinTox", "HIV", "BACE", "SIDER", "MUV"]
     for dset in downstream_datasets:
         eval_downstream(model.gnn, device, dset, target_path)
 
