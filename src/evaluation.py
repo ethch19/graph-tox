@@ -23,6 +23,75 @@ DATA_DIR = BASE_DIR / "data"
 MODEL_DIR = BASE_DIR / "models/saved"
 EVAL_DIR = BASE_DIR / "eval"
 
+MOLNET_TARGETS = {
+    "BBBP": ["p_np"],
+    "Tox21": [
+        "NR-AR",
+        "NR-AR-LBD",
+        "NR-AhR",
+        "NR-Aromatase",
+        "NR-ER",
+        "NR-ER-LBD",
+        "NR-PPAR-gamma",
+        "SR-ARE",
+        "SR-ATAD5",
+        "SR-HSE",
+        "SR-MMP",
+        "SR-p53",
+    ],
+    "ClinTox": ["CT_TOX", "FDA_APPROVED"],
+    "HIV": ["HIV_active"],
+    "BACE": ["Class"],
+    "SIDER": [
+        "Hepatobiliary disorders",
+        "Metabolism and nutrition disorders",
+        "Product issues",
+        "Eye disorders",
+        "Investigations",
+        "Musculoskeletal and connective tissue disorders",
+        "Gastrointestinal disorders",
+        "Social circumstances",
+        "Immune system disorders",
+        "Reproductive system and breast disorders",
+        "Neoplasms benign, malignant and unspecified (incl cysts and polyps)",
+        "General disorders and administration site conditions",
+        "Endocrine disorders",
+        "Surgical and medical procedures",
+        "Vascular disorders",
+        "Blood and lymphatic system disorders",
+        "Skin and subcutaneous tissue disorders",
+        "Congenital, familial and genetic disorders",
+        "Infections and infestations",
+        "Respiratory, thoracic and mediastinal disorders",
+        "Psychiatric disorders",
+        "Renal and urinary disorders",
+        "Pregnancy, puerperium and perinatal conditions",
+        "Ear and labyrinth disorders",
+        "Cardiac disorders",
+        "Nervous system disorders",
+        "Injury, poisoning and procedural complications",
+    ],
+    "MUV": [
+        "MUV-692",
+        "MUV-689",
+        "MUV-846",
+        "MUV-859",
+        "MUV-644",
+        "MUV-548",
+        "MUV-852",
+        "MUV-600",
+        "MUV-810",
+        "MUV-712",
+        "MUV-737",
+        "MUV-858",
+        "MUV-713",
+        "MUV-733",
+        "MUV-652",
+        "MUV-466",
+        "MUV-832",
+    ],
+}
+
 
 def calculate_hits_at_k(similarity_matrix: torch.Tensor, k: int = 5) -> float:
     """calculates retrieval accuracy (Top-K)"""
@@ -108,6 +177,11 @@ def eval_downstream(
 ):
     print(f"\n---Starting {dataset_name} evaluation---")
 
+    if dataset_name not in MOLNET_TARGETS:
+        raise ValueError(
+            f"Targets for classification dataset '{dataset_name}' are not defined."
+        )
+
     MoleculeNet(root=str(DATA_DIR), name=dataset_name)  # using it as downloader
     raw_dir = DATA_DIR / dataset_name.lower() / "raw"
     csv_paths = list(raw_dir.glob("*.csv")) + list(raw_dir.glob("*.csv.gz"))
@@ -116,7 +190,7 @@ def eval_downstream(
     csv_path = csv_paths[0]
     df = pd.read_csv(csv_path)
 
-    label_cols = [c for c in df.columns if c.lower() not in ["smiles", "mol_id"]]
+    label_cols = MOLNET_TARGETS[dataset_name]
     num_tasks = len(label_cols)
     smiles_col = "smiles" if "smiles" in df.columns else df.columns[0]
 
