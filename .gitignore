@@ -11,7 +11,6 @@ wheels/
 
 # Data
 data/*
-models/saved/
 
 /*log
 /*.pbs.o*

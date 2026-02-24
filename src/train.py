@@ -30,9 +30,10 @@ def save_checkpoint(
     train_losses: List[float],
     val_losses: List[float],
     timestamp: str,
+    target_dir: Path,
 ):
-    SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    ckpt_path = SAVE_DIR / f"ckpt_{timestamp}_epoch{epoch + 1}.pth"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = target_dir / f"ckpt_{timestamp}_epoch{epoch + 1}.pth"
 
     model_state = (
         model.module.state_dict()
@@ -85,7 +86,9 @@ def load_pretrained_gnn(pth_path: Path, gnn_instance: nn.Module) -> nn.Module:
     return gnn_instance
 
 
-def clip_loss(graph_embeds, assay_embeds, logit_scale):  # InfoNCE loss
+def clip_loss(
+    graph_embeds: torch.Tensor, assay_embeds: torch.Tensor, logit_scale: torch.Tensor
+) -> torch.Tensor:  # InfoNCE loss
     # clamp temperature to prevent numerical instability
     logit_scale = torch.clamp(logit_scale, max=100.0)
 
@@ -124,6 +127,9 @@ def main():
     start_epoch, train_losses, val_losses, run_timestamp = load_checkpoint(
         model, optimiser
     )
+
+    target_dir = SAVE_DIR / run_timestamp
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     if start_epoch == 0:
         if not PRETRAINED_GIN_PATH.exists():
@@ -219,12 +225,10 @@ def main():
         )
 
         save_checkpoint(
-            model, optimiser, epoch, train_losses, val_losses, run_timestamp
+            model, optimiser, epoch, train_losses, val_losses, run_timestamp, target_dir
         )
 
-    SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    model_save_path = SAVE_DIR / f"fusion_model_{run_timestamp}.pth"
-
+    model_save_path = target_dir / f"fusion_model_{run_timestamp}.pth"
     torch.save(model.state_dict(), str(model_save_path))
     print(f"Model weights saved to '{model_save_path}'")
 
@@ -244,7 +248,7 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plot_save_path = SAVE_DIR / f"training_curve_{run_timestamp}.png"
+    plot_save_path = target_dir / f"training_curve_{run_timestamp}.png"
     plt.savefig(str(plot_save_path))
     plt.close()
     print(f"Training curve saved to '{plot_save_path}'")
