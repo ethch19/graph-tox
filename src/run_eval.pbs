@@ -1,0 +1,20 @@
+#!/bin/bash
+#PBS -N fusion_eval
+#PBS -l select=1:ncpus=4:mem=64gb:ngpus=1
+#PBS -l walltime=5:00:00
+#PBS -o training_output.log
+#PBS -e training_error.log
+
+cd $PBS_O_WORKDIR
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+eval "$(mamba shell hook --shell bash)"
+mamba activate graph-tox
+
+echo "Allocated GPUs: $CUDA_VISIBLE_DEVICES"
+echo "--- Started at: $(date '+%Y-%m-%d %H:%M:%S') ---"
+
+echo "===Starting Evaluation==="
+python -m src.evaluation
+
+echo "--- Script finished at: $(date '+%Y-%m-%d %H:%M:%S') ---"
