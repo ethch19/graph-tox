@@ -110,11 +110,12 @@ def eval_downstream(
 
     MoleculeNet(root=str(DATA_DIR), name=dataset_name)  # using it as downloader
     raw_dir = DATA_DIR / dataset_name.lower() / "raw"
-    csv_path = raw_dir / f"{dataset_name.lower()}.csv.gz"
-    if not csv_path.exists():
-        csv_path = raw_dir / f"{dataset_name.lower()}.csv"
-
+    csv_paths = list(raw_dir.glob("*.csv")) + list(raw_dir.glob("*.csv.gz"))
+    if not csv_paths:
+        raise FileNotFoundError(f"Could not find any .csv or .csv.gz file in {raw_dir}")
+    csv_path = csv_paths[0]
     df = pd.read_csv(csv_path)
+
     label_cols = [c for c in df.columns if c.lower() not in ["smiles", "mol_id"]]
     num_tasks = len(label_cols)
     smiles_col = "smiles" if "smiles" in df.columns else df.columns[0]
